@@ -10,3 +10,5 @@ jspm_packages
 
 # dynamo directories
 .dynamodb
+
+temp

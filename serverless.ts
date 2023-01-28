@@ -46,11 +46,11 @@ const serverlessConfiguration: AWS = {
       bundle: true,
       minify: false,
       sourcemap: true,
-      exclude: ['aws-sdk'],
       target: 'node14',
       define: { 'require.resolve': undefined },
       platform: 'node',
       concurrency: 10,
+      exclude: ['aws-sdk', 'chrome-aws-lambda'],
     },
     dynamodb: {
       stages: ["dev", "local"],
