@@ -4,7 +4,7 @@ import handlebars from 'handlebars'
 import { readFileSync } from "fs";
 import dayjs from 'dayjs'
 import chromium from "chrome-aws-lambda";
-
+import { S3 } from 'aws-sdk'
 import { document } from '../utils/dynamodbClient'
 
 interface ICreateCertificate {
@@ -31,16 +31,6 @@ const compileCertificateTemplate = async (data: ICertificateTemplate) => {
 export const handler: APIGatewayProxyHandler = async (event: APIGatewayProxyEvent) => {
   const { id, name, grade } = JSON.parse(event.body) as ICreateCertificate
 
-  await document.put({
-    TableName: 'users_certificate',
-    Item: {
-      id,
-      name,
-      grade,
-      created_at: new Date().getTime()
-    }
-  }).promise()
-
   const response = await document.query({
     TableName: 'users_certificate',
     KeyConditionExpression: "id = :id",
@@ -48,6 +38,20 @@ export const handler: APIGatewayProxyHandler = async (event: APIGatewayProxyEven
       ":id": id
     }
   }).promise()
+
+  const userAlreadyExists = response.Items[0]
+
+  if (!userAlreadyExists) {
+    await document.put({
+      TableName: 'users_certificate',
+      Item: {
+        id,
+        name,
+        grade,
+        created_at: new Date().getTime()
+      }
+    }).promise()
+  }
 
   const medalPath = join(process.cwd(), "src", "templates", "selo.png")
   const medal = readFileSync(medalPath, "base64")
@@ -82,8 +86,21 @@ export const handler: APIGatewayProxyHandler = async (event: APIGatewayProxyEven
 
   await browser.close()
 
+  const s3 = new S3()
+
+  await s3.putObject({
+    Bucket: 'certificate-ignitenode',
+    Key: `${id}.pdf`,
+    ACL: 'public-read',
+    Body: pdf,
+    ContentType: 'application/pdf'
+  }).promise()
+
   return {
     statusCode: 201,
-    body: JSON.stringify(response.Items[0])
+    body: JSON.stringify({
+      message: 'Certificado criado com sucesso!',
+      url: `https://certificate-ignitenode.s3.amazonaws.com/${id}.pdf`
+    })
   }
 }
